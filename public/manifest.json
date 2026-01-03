@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
 
-  "name": "Chrome Extension TypeScript Starter",
-  "description": "Chrome Extension, TypeScript, Visual Studio Code",
+  "name": "Chess-Kit",
+  "description": "A toolkit for chess streamers to standardize their layouts across different websites and game modes.",
   "version": "1.0",
 
   "options_ui": {

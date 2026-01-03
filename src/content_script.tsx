@@ -2,7 +2,7 @@ import { makeDraggable } from "./lib/draggable";
 import { DraggableSelector } from "./types";
 
 function applyDraggableToSelectors() {
-  chrome.storage.sync.get({   : [] }, (items) => {
+  chrome.storage.sync.get({ selectors: [] }, (items) => {
     const selectors: DraggableSelector[] = items.selectors;
 
     selectors.forEach((selectorConfig) => {

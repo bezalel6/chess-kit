@@ -1,9 +1,10 @@
 type DraggableOptions = {
   handle?: HTMLElement | ((root: HTMLElement) => HTMLElement);
-  initial?: { x?: number; y?: number };
+  initial?: { x?: number; y?: number; size?: { width: number; height: number } };
   axis?: 'both' | 'x' | 'y';
   zIndex?: number;
   onDragEnd?: (position: { x: number; y: number }) => void;
+  onResizeEnd?: (size: { width: number; height: number }) => void;
 };
 
 export function makeDraggable(
@@ -27,17 +28,17 @@ export function makeDraggable(
 
   if (opts.initial?.x !== undefined) root.style.left = `${opts.initial.x}px`;
   if (opts.initial?.y !== undefined) root.style.top = `${opts.initial.y}px`;
+  if (opts.initial?.size?.width !== undefined) root.style.width = `${opts.initial.size.width}px`;
+  if (opts.initial?.size?.height !== undefined) root.style.height = `${opts.initial.size.height}px`;
 
+  // Dragging logic
   const handle =
     typeof opts.handle === 'function'
       ? opts.handle(root)
       : opts.handle ?? root;
 
   let dragging = false;
-  let startX = 0;
-  let startY = 0;
-  let startLeft = 0;
-  let startTop = 0;
+  let startX = 0, startY = 0, startLeft = 0, startTop = 0;
 
   const onMouseDown = (e: MouseEvent) => {
     dragging = true;
@@ -47,11 +48,11 @@ export function makeDraggable(
     startTop = parseInt(root.style.top || '0', 10);
     (handle as HTMLElement).style.cursor = 'grabbing';
     e.preventDefault();
+    e.stopPropagation();
   };
 
   const onMouseMove = (e: MouseEvent) => {
     if (!dragging) return;
-
     if (axis === 'both' || axis === 'x') {
       root.style.left = `${startLeft + (e.clientX - startX)}px`;
     }
@@ -77,11 +78,66 @@ export function makeDraggable(
   window.addEventListener('mousemove', onMouseMove);
   window.addEventListener('mouseup', onMouseUp);
 
+  // Resizing logic
+  const resizeHandle = document.createElement('div');
+  Object.assign(resizeHandle.style, {
+    position: 'absolute',
+    bottom: '0px',
+    right: '0px',
+    width: '10px',
+    height: '10px',
+    background: 'rgba(0,0,0,.5)',
+    cursor: 'nwse-resize',
+    zIndex: String(opts.zIndex ? opts.zIndex + 1 : 'auto'),
+  });
+  root.appendChild(resizeHandle);
+
+  let resizing = false;
+  let startResizeX = 0, startResizeY = 0, startWidth = 0, startHeight = 0;
+
+  const onResizeMouseDown = (e: MouseEvent) => {
+    resizing = true;
+    startResizeX = e.clientX;
+    startResizeY = e.clientY;
+    startWidth = parseInt(cs.width, 10);
+    startHeight = parseInt(cs.height, 10);
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const onResizeMouseMove = (e: MouseEvent) => {
+    if (!resizing) return;
+    const newWidth = startWidth + (e.clientX - startResizeX);
+    const newHeight = startHeight + (e.clientY - startResizeY);
+    root.style.width = `${newWidth}px`;
+    root.style.height = `${newHeight}px`;
+  };
+
+  const onResizeMouseUp = () => {
+    if (resizing) {
+      resizing = false;
+      if (opts.onResizeEnd) {
+        opts.onResizeEnd({
+          width: parseInt(root.style.width, 10),
+          height: parseInt(root.style.height, 10),
+        });
+      }
+    }
+  };
+
+  resizeHandle.addEventListener('mousedown', onResizeMouseDown);
+  window.addEventListener('mousemove', onResizeMouseMove);
+  window.addEventListener('mouseup', onResizeMouseUp);
+
   return {
     destroy() {
       handle.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      resizeHandle.removeEventListener('mousedown', onResizeMouseDown);
+      window.removeEventListener('mousemove', onResizeMouseMove);
+      window.removeEventListener('mouseup', onResizeMouseUp);
+      root.removeChild(resizeHandle);
     },
   };
 }

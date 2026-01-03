@@ -2,7 +2,7 @@ import { makeDraggable } from "./lib/draggable";
 import { DraggableSelector } from "./types";
 
 function applyDraggableToSelectors() {
-  chrome.storage.sync.get({ selectors: [] }, (items) => {
+  chrome.storage.sync.get({   : [] }, (items) => {
     const selectors: DraggableSelector[] = items.selectors;
 
     selectors.forEach((selectorConfig) => {
@@ -12,7 +12,11 @@ function applyDraggableToSelectors() {
       if (element && !(element as any).__isDraggable) {
         (element as any).__isDraggable = true; // Mark as processed
         makeDraggable(selectorConfig.selector, {
-          initial: selectorConfig.position,
+          initial: {
+            x: selectorConfig.position?.x,
+            y: selectorConfig.position?.y,
+            size: selectorConfig.size,
+          },
           onDragEnd: (position) => {
             // Read the latest selectors, update the position, and save back.
             chrome.storage.sync.get({ selectors: [] }, (currentItems) => {
@@ -23,6 +27,20 @@ function applyDraggableToSelectors() {
               );
               if (selectorToUpdate) {
                 selectorToUpdate.position = position;
+                chrome.storage.sync.set({ selectors: currentSelectors });
+              }
+            });
+          },
+          onResizeEnd: (size) => {
+            // Read the latest selectors, update the size, and save back.
+            chrome.storage.sync.get({ selectors: [] }, (currentItems) => {
+              const currentSelectors: DraggableSelector[] =
+                currentItems.selectors;
+              const selectorToUpdate = currentSelectors.find(
+                (s) => s.id === selectorConfig.id
+              );
+              if (selectorToUpdate) {
+                selectorToUpdate.size = size;
                 chrome.storage.sync.set({ selectors: currentSelectors });
               }
             });

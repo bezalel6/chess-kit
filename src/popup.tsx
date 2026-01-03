@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 const Popup = () => {
   const [count, setCount] = useState(0);
   const [currentURL, setCurrentURL] = useState<string>();
-
+  const [color, setColor] = useState("#555555");
   useEffect(() => {
     chrome.action.setBadgeText({ text: count.toString() });
   }, [count]);
@@ -15,22 +15,25 @@ const Popup = () => {
     });
   }, []);
 
-  const changeBackground = () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-      const tab = tabs[0];
-      if (tab.id) {
-        chrome.tabs.sendMessage(
-          tab.id,
-          {
-            color: "#555555",
-          },
-          (msg) => {
-            console.log("result message:", msg);
-          }
-        );
-      }
-    });
-  };
+  const changeBackground = useMemo(
+    () => () => {
+      chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+        const tab = tabs[0];
+        if (tab.id) {
+          chrome.tabs.sendMessage(
+            tab.id,
+            {
+              color,
+            },
+            (msg) => {
+              console.log("result message:", msg);
+            }
+          );
+        }
+      });
+    },
+    [color]
+  );
 
   return (
     <>
@@ -45,6 +48,12 @@ const Popup = () => {
         count up
       </button>
       <button onClick={changeBackground}>change background</button>
+      <input
+        type="color"
+        onChange={(i) => {
+          setColor(i.target.value);
+        }}
+      ></input>
     </>
   );
 };

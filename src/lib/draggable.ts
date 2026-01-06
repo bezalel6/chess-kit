@@ -1,7 +1,5 @@
 type DraggableOptions = {
-  handle?: HTMLElement | ((root: HTMLElement) => HTMLElement);
   initial?: { x?: number; y?: number; size?: { width: number; height: number } };
-  axis?: 'both' | 'x' | 'y';
   zIndex?: number;
   isRepositionable?: boolean;
   isResizable?: boolean;
@@ -16,158 +14,242 @@ export function makeDraggable(
   const root = document.querySelector<HTMLElement>(selector);
   if (!root) throw new Error(`makeDraggable: "${selector}" not found`);
 
-  const axis = opts.axis ?? 'both';
+  // --- Initial Positioning and Sizing ---
   const cs = getComputedStyle(root);
+  const hasInitialPosition = opts.initial?.x !== undefined;
+  const hasInitialSize = opts.initial?.size?.width !== undefined;
 
-  // If the element has a stored position, use it. Otherwise, calculate its current position.
-  if (opts.initial?.x !== undefined) {
-    root.style.left = `${opts.initial.x}px`;
-  }
-  if (opts.initial?.y !== undefined) {
-    root.style.top = `${opts.initial.y}px`;
-  }
-  
-  // If the element has a stored size, use it. Otherwise, use its current size.
-  if (opts.initial?.size?.width !== undefined) {
-    root.style.width = `${opts.initial.size.width}px`;
-  } else {
-    root.style.width = cs.width;
-  }
-  if (opts.initial?.size?.height !== undefined) {
-    root.style.height = `${opts.initial.size.height}px`;
-  }
-
-  // This is the key part: if we are about to make an element absolute that was previously
-  // static, we pin it to its current location on the screen.
-  if (cs.position === 'static' && opts.initial?.x === undefined) {
+  // If no initial values are stored, get the element's current geometry.
+  // This is the key to preventing the element from jumping or resizing.
+  if (!hasInitialPosition && !hasInitialSize) {
     const rect = root.getBoundingClientRect();
-    root.style.top = `${rect.top + window.scrollY}px`;
-    root.style.left = `${rect.left + window.scrollX}px`;
-    root.style.height = `${rect.height}px`; // Also lock in the height
+    if (!hasInitialPosition) {
+      root.style.left = `${rect.left + window.scrollX}px`;
+      root.style.top = `${rect.top + window.scrollY}px`;
+    }
+    if (!hasInitialSize) {
+      root.style.width = `${rect.width}px`;
+      root.style.height = `${rect.height}px`;
+    }
+  } else {
+    // Apply stored values if they exist
+    if (hasInitialPosition) {
+      root.style.left = `${opts.initial!.x}px`;
+      root.style.top = `${opts.initial!.y}px`;
+    }
+    if (hasInitialSize) {
+      root.style.width = `${opts.initial!.size!.width}px`;
+      root.style.height = `${opts.initial!.size!.height}px`;
+    }
   }
+
+  // Set box-sizing to border-box to make size calculations predictable.
+  root.style.boxSizing = 'border-box';
   
   // Ensure the element is absolutely positioned to allow top/left to work.
   if (cs.position === 'static') {
     root.style.position = 'absolute';
   }
+  if (opts.zIndex) root.style.zIndex = String(opts.zIndex);
 
-  if (opts.zIndex !== undefined) {
-    root.style.zIndex = String(opts.zIndex);
+  // --- Controls UI ---
+  const controlsContainer = document.createElement('div');
+  controlsContainer.style.cssText = `
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s;
+  `;
+  root.appendChild(controlsContainer);
+
+  const showControls = () => { controlsContainer.style.opacity = '1'; };
+  const hideControls = () => { controlsContainer.style.opacity = '0'; };
+
+  root.addEventListener('mouseenter', showControls);
+  root.addEventListener('mouseleave', hideControls);
+
+  // --- Drag Handle ---
+  if (opts.isRepositionable) {
+    const dragHandle = document.createElement('div');
+    dragHandle.dataset.direction = 'drag';
+    dragHandle.textContent = '⤧';
+    dragHandle.style.cssText = `
+      position: absolute;
+      top: -22px;
+      right: 0px;
+      width: 30px;
+      height: 22px;
+      cursor: grab;
+      pointer-events: auto;
+      background: #3498db;
+      color: white;
+      border-top-left-radius: 5px;
+      border-top-right-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      border: 1px solid #fff;
+      border-bottom: none;
+    `;
+    controlsContainer.appendChild(dragHandle);
   }
 
-  let handle: HTMLElement | null = null;
-  let resizeHandle: HTMLElement | null = null;
+  // --- Resize Handles ---
+  if (opts.isResizable) {
+    // Add a border to show the resize area
+    const resizeBorder = document.createElement('div');
+    resizeBorder.style.cssText = `
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none;
+      border: 1px dashed #3498db;
+      box-sizing: border-box;
+    `;
+    controlsContainer.appendChild(resizeBorder);
 
-  // Dragging logic
-  if (opts.isRepositionable) {
-    handle = typeof opts.handle === 'function'
-        ? opts.handle(root)
-        : opts.handle ?? root;
+    const directions = ['n', 'ne', 'e', 'se', 's', 'sw', 'w', 'nw'];
+    directions.forEach(dir => {
+      const handle = document.createElement('div');
+      handle.dataset.direction = dir;
+      handle.style.cssText = `
+        position: absolute;
+        width: 10px; height: 10px;
+        background: #3498db;
+        border: 1px solid #fff;
+        pointer-events: auto;
+      `;
+      // Position and cursor style
+      if (dir.includes('n')) { handle.style.top = '-5px'; handle.style.cursor = 'n-resize'; }
+      if (dir.includes('s')) { handle.style.bottom = '-5px'; handle.style.cursor = 's-resize'; }
+      if (dir.includes('w')) { handle.style.left = '-5px'; handle.style.cursor = 'w-resize'; }
+      if (dir.includes('e')) { handle.style.right = '-5px'; handle.style.cursor = 'e-resize'; }
+      if (dir === 'n' || dir === 's') { handle.style.left = 'calc(50% - 5px)'; }
+      if (dir === 'e' || dir === 'w') { handle.style.top = 'calc(50% - 5px)'; }
+      if (dir === 'nw' || dir === 'se') { handle.style.cursor = 'nwse-resize'; }
+      if (dir === 'ne' || dir === 'sw') { handle.style.cursor = 'nesw-resize'; }
+      
+      controlsContainer.appendChild(handle);
+    });
+  }
 
-    let dragging = false;
-    let startX = 0, startY = 0, startLeft = 0, startTop = 0;
+  // --- Event Handling Logic ---
+  let state = {
+    action: null as 'drag' | 'resize' | null,
+    direction: null as string | null,
+    startX: 0,
+    startY: 0,
+    startLeft: 0,
+    startTop: 0,
+    startWidth: 0,
+    startHeight: 0,
+  };
 
-    const onMouseDown = (e: MouseEvent) => {
-      dragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      startLeft = parseInt(root.style.left || '0', 10);
-      startTop = parseInt(root.style.top || '0', 10);
-      (handle as HTMLElement).style.cursor = 'grabbing';
-      e.preventDefault();
-      e.stopPropagation();
-    };
+  const onMouseDown = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const direction = target.dataset.direction;
+    if (!direction) return;
 
-    const onMouseMove = (e: MouseEvent) => {
-      if (!dragging) return;
-      if (axis === 'both' || axis === 'x') {
-        root.style.left = `${startLeft + (e.clientX - startX)}px`;
-      }
-      if (axis === 'both' || axis === 'y') {
-        root.style.top = `${startTop + (e.clientY - startY)}px`;
-      }
-    };
+    e.preventDefault();
+    e.stopPropagation();
 
-    const onMouseUp = () => {
-      if (dragging) {
-        dragging = false;
-        (handle as HTMLElement).style.cursor = 'grab';
-        if (opts.onDragEnd) {
-          opts.onDragEnd({
-            x: parseInt(root.style.left || '0', 10),
-            y: parseInt(root.style.top || '0', 10),
-          });
-        }
-      }
-    };
+    state.direction = direction;
+    state.startX = e.clientX;
+    state.startY = e.clientY;
+    
+    // For dragging, get position from the style property to avoid coordinate system mismatch.
+    state.startLeft = parseInt(root.style.left || '0', 10);
+    state.startTop = parseInt(root.style.top || '0', 10);
 
-    handle.addEventListener('mousedown', onMouseDown);
+    // For resizing, get the current dimensions from getBoundingClientRect.
+    const rect = root.getBoundingClientRect();
+    state.startWidth = rect.width;
+    state.startHeight = rect.height;
+
+    if (direction === 'drag') {
+      state.action = 'drag';
+      (target as HTMLElement).style.cursor = 'grabbing';
+    } else {
+      state.action = 'resize';
+    }
+
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
-  }
+  };
 
-  // Resizing logic
-  if (opts.isResizable) {
-    resizeHandle = document.createElement('div');
-    Object.assign(resizeHandle.style, {
-      position: 'absolute',
-      bottom: '0px',
-      right: '0px',
-      width: '10px',
-      height: '10px',
-      background: 'rgba(0,0,0,.5)',
-      cursor: 'nwse-resize',
-      zIndex: String(opts.zIndex ? opts.zIndex + 1 : 'auto'),
-    });
-    root.appendChild(resizeHandle);
+  const onMouseMove = (e: MouseEvent) => {
+    if (!state.action) return;
 
-    let resizing = false;
-    let startResizeX = 0, startResizeY = 0, startWidth = 0, startHeight = 0;
+    const dx = e.clientX - state.startX;
+    const dy = e.clientY - state.startY;
 
-    const onResizeMouseDown = (e: MouseEvent) => {
-      resizing = true;
-      startResizeX = e.clientX;
-      startResizeY = e.clientY;
-      startWidth = parseInt(getComputedStyle(root).width, 10);
-      startHeight = parseInt(getComputedStyle(root).height, 10);
-      e.preventDefault();
-      e.stopPropagation();
-    };
+    if (state.action === 'drag') {
+      root.style.left = `${state.startLeft + dx}px`;
+      root.style.top = `${state.startTop + dy}px`;
+    } else if (state.action === 'resize') {
+      let { startWidth, startHeight, startLeft, startTop } = state;
+      let newWidth = startWidth;
+      let newHeight = startHeight;
+      let newLeft = startLeft;
+      let newTop = startTop;
 
-    const onResizeMouseMove = (e: MouseEvent) => {
-      if (!resizing) return;
-      const newWidth = startWidth + (e.clientX - startResizeX);
-      const newHeight = startHeight + (e.clientY - startResizeY);
+      if (state.direction?.includes('e')) newWidth = startWidth + dx;
+      if (state.direction?.includes('w')) {
+        newWidth = startWidth - dx;
+        newLeft = startLeft + dx;
+      }
+      if (state.direction?.includes('s')) newHeight = startHeight + dy;
+      if (state.direction?.includes('n')) {
+        newHeight = startHeight - dy;
+        newTop = startTop + dy;
+      }
+
       root.style.width = `${newWidth}px`;
       root.style.height = `${newHeight}px`;
-    };
+      root.style.left = `${newLeft}px`;
+      root.style.top = `${newTop}px`;
+    }
+  };
 
-    const onResizeMouseUp = () => {
-      if (resizing) {
-        resizing = false;
-        if (opts.onResizeEnd) {
-          opts.onResizeEnd({
-            width: parseInt(root.style.width, 10),
-            height: parseInt(root.style.height, 10),
-          });
-        }
+  const onMouseUp = () => {
+    if (state.action === 'drag') {
+      if (opts.onDragEnd) {
+        opts.onDragEnd({
+          x: parseInt(root.style.left, 10),
+          y: parseInt(root.style.top, 10),
+        });
       }
-    };
+      const dragBorder = controlsContainer.querySelector('[data-direction="drag"]') as HTMLElement;
+      if (dragBorder) dragBorder.style.cursor = 'grab';
+    } else if (state.action === 'resize') {
+      if (opts.onResizeEnd) {
+        opts.onResizeEnd({
+          width: parseInt(root.style.width, 10),
+          height: parseInt(root.style.height, 10),
+        });
+      }
+    }
 
-    resizeHandle.addEventListener('mousedown', onResizeMouseDown);
-    window.addEventListener('mousemove', onResizeMouseMove);
-    window.addEventListener('mouseup', onResizeMouseUp);
-  }
+    state.action = null;
+    state.direction = null;
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+  };
+
+  controlsContainer.addEventListener('mousedown', onMouseDown);
 
   return {
     destroy() {
-      // A more robust implementation would store and remove these listeners specifically.
-      if (handle) {
-        // For now, we assume destroying the element or its parent will clean up.
+      root.removeEventListener('mouseenter', showControls);
+      root.removeEventListener('mouseleave', hideControls);
+      if (root.contains(controlsContainer)) {
+        root.removeChild(controlsContainer);
       }
-      if (resizeHandle && root.contains(resizeHandle)) {
-        root.removeChild(resizeHandle);
-      }
+      // The mousedown listener is on the container, which is removed.
+      // The window listeners are removed on mouseup, but if destroy is called mid-drag, they might linger.
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
     },
   };
 }

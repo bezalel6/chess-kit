@@ -55,28 +55,6 @@ function applyDraggableToSelectors() {
               }
             });
           },
-          handle: (root) => {
-            const h = document.createElement("div");
-            h.textContent = "⤧";
-            Object.assign(h.style, {
-              position: "absolute",
-              top: "-28px",
-              right: "-28px",
-              width: "24px",
-              height: "24px",
-              borderRadius: "50%",
-              background: "rgba(0,0,0,.7)",
-              color: "#fff",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: "grab",
-              userSelect: "none",
-              zIndex: "9998"
-            });
-            root.appendChild(h);
-            return h;
-          },
           zIndex: 9999,
         });
         draggableInstances.push(instance);

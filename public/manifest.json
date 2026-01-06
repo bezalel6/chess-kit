@@ -1,34 +1,32 @@
 {
   "manifest_version": 3,
-
   "name": "Chess-Kit",
   "description": "A toolkit for chess streamers to standardize their layouts across different websites and game modes.",
-  "version": "1.0",
-
+  "version": "1.69.0",
   "options_ui": {
     "page": "options.html"
   },
-
   "action": {
     "default_icon": "icon.png",
     "default_popup": "popup.html"
   },
-
   "content_scripts": [
-      {
-          "matches": ["<all_urls>"],
-          "js": ["js/vendor.js", "js/content_script.js"]
-      }
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "js/vendor.js",
+        "js/content_script.js"
+      ]
+    }
   ],
-
   "background": {
     "service_worker": "js/background.js"
   },
-
   "permissions": [
     "storage"
   ],
-
   "host_permissions": [
     "<all_urls>"
   ]

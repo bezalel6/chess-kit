@@ -65,6 +65,22 @@ npm run style        # Format TypeScript files with Prettier
 - Callbacks: `onDragEnd(position)` and `onResizeEnd(size)` to persist changes
 - Returns a `destroy()` method to clean up event listeners and DOM modifications
 
+**Theme System** (`src/theme.ts`)
+- **Centralized styling**: All colors, spacing, typography, and other design tokens in one place
+- **Easy customization**: Change the entire color scheme by modifying values in `theme.colors`
+- **Helper functions**:
+  - `rgba(color, opacity)`: Converts hex colors to rgba with specified opacity
+  - `createStyles()`: Type-safe style object creation helper
+- **Key theme properties**:
+  - `colors`: Primary, secondary, accent, status, and neutral colors
+  - `gradients`: Pre-defined gradient combinations
+  - `spacing`: Consistent spacing scale (xs to xxxl)
+  - `borderRadius`: Border radius values for different components
+  - `shadows`: Shadow definitions for depth and elevation
+  - `typography`: Font families, sizes, and weights
+  - `transitions`: Consistent animation timings
+  - `icons`: Unicode escape sequences for icons (avoids emoji encoding issues)
+
 **Types** (`src/types.ts`)
 - `DraggableSelector`: Defines selector configuration structure
   - `id`: Unique identifier
@@ -100,6 +116,28 @@ chrome.storage.sync: {
 - **Entry Points**: `background.ts`, `content_script.tsx`, `popup.tsx`, `options.tsx`
 - **Code Splitting**: Vendor chunk created for all entries except background (to keep service worker lightweight)
 - **Output**: All built files go to `dist/js/`, static files copied from `public/` to `dist/`
+
+## Customizing the Theme
+
+To change the color scheme or styling across the entire extension:
+
+1. **Edit `src/theme.ts`** - All design tokens are centralized here
+2. **Primary color change**: Modify `theme.colors.primary` (default: `#4a7c59`)
+3. **Secondary color change**: Modify `theme.colors.secondary` (default: `#8b6f47`)
+4. **Components automatically update**: All UI components (`popup.tsx`, `options.tsx`, `draggable.ts`) import and use the theme
+
+Example - Change to a blue theme:
+```typescript
+// In src/theme.ts
+colors: {
+  primary: '#2196F3',        // Blue instead of green
+  primaryLight: '#42A5F5',
+  primaryDark: '#1976D2',
+  // ... other colors
+}
+```
+
+All buttons, borders, handles, and accents will update automatically.
 
 ## Important Patterns
 

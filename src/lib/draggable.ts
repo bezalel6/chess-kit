@@ -59,7 +59,7 @@ export function makeDraggable(
     top: 0; left: 0; width: 100%; height: 100%;
     pointer-events: none;
     opacity: 0;
-    transition: opacity 0.2s;
+    transition: opacity 0.3s ease;
   `;
   root.appendChild(controlsContainer);
 
@@ -76,23 +76,36 @@ export function makeDraggable(
     dragHandle.textContent = '⤧';
     dragHandle.style.cssText = `
       position: absolute;
-      top: -22px;
+      top: -28px;
       right: 0px;
-      width: 30px;
-      height: 22px;
+      width: 36px;
+      height: 28px;
       cursor: grab;
       pointer-events: auto;
-      background: #3498db;
+      background: linear-gradient(135deg, #4a7c59 0%, #3d6547 100%);
       color: white;
-      border-top-left-radius: 5px;
-      border-top-right-radius: 5px;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 14px;
-      border: 1px solid #fff;
+      font-size: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
       border-bottom: none;
+      box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+      transition: all 0.2s ease;
     `;
+
+    dragHandle.addEventListener('mouseenter', () => {
+      dragHandle.style.background = 'linear-gradient(135deg, #5a8c69 0%, #4d7557 100%)';
+      dragHandle.style.transform = 'translateY(-2px)';
+    });
+
+    dragHandle.addEventListener('mouseleave', () => {
+      dragHandle.style.background = 'linear-gradient(135deg, #4a7c59 0%, #3d6547 100%)';
+      dragHandle.style.transform = 'translateY(0)';
+    });
+
     controlsContainer.appendChild(dragHandle);
   }
 
@@ -104,8 +117,9 @@ export function makeDraggable(
       position: absolute;
       top: 0; left: 0; width: 100%; height: 100%;
       pointer-events: none;
-      border: 1px dashed #3498db;
+      border: 2px solid #4a7c59;
       box-sizing: border-box;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
     `;
     controlsContainer.appendChild(resizeBorder);
 
@@ -115,21 +129,36 @@ export function makeDraggable(
       handle.dataset.direction = dir;
       handle.style.cssText = `
         position: absolute;
-        width: 10px; height: 10px;
-        background: #3498db;
-        border: 1px solid #fff;
+        width: 12px; height: 12px;
+        background: linear-gradient(135deg, #4a7c59 0%, #3d6547 100%);
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        border-radius: 50%;
         pointer-events: auto;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+        transition: all 0.2s ease;
       `;
       // Position and cursor style
-      if (dir.includes('n')) { handle.style.top = '-5px'; handle.style.cursor = 'n-resize'; }
-      if (dir.includes('s')) { handle.style.bottom = '-5px'; handle.style.cursor = 's-resize'; }
-      if (dir.includes('w')) { handle.style.left = '-5px'; handle.style.cursor = 'w-resize'; }
-      if (dir.includes('e')) { handle.style.right = '-5px'; handle.style.cursor = 'e-resize'; }
-      if (dir === 'n' || dir === 's') { handle.style.left = 'calc(50% - 5px)'; }
-      if (dir === 'e' || dir === 'w') { handle.style.top = 'calc(50% - 5px)'; }
+      if (dir.includes('n')) { handle.style.top = '-6px'; handle.style.cursor = 'n-resize'; }
+      if (dir.includes('s')) { handle.style.bottom = '-6px'; handle.style.cursor = 's-resize'; }
+      if (dir.includes('w')) { handle.style.left = '-6px'; handle.style.cursor = 'w-resize'; }
+      if (dir.includes('e')) { handle.style.right = '-6px'; handle.style.cursor = 'e-resize'; }
+      if (dir === 'n' || dir === 's') { handle.style.left = 'calc(50% - 6px)'; }
+      if (dir === 'e' || dir === 'w') { handle.style.top = 'calc(50% - 6px)'; }
       if (dir === 'nw' || dir === 'se') { handle.style.cursor = 'nwse-resize'; }
       if (dir === 'ne' || dir === 'sw') { handle.style.cursor = 'nesw-resize'; }
-      
+
+      handle.addEventListener('mouseenter', () => {
+        handle.style.background = 'linear-gradient(135deg, #5a8c69 0%, #4d7557 100%)';
+        handle.style.transform = 'scale(1.2)';
+        handle.style.borderColor = 'rgba(255, 255, 255, 0.8)';
+      });
+
+      handle.addEventListener('mouseleave', () => {
+        handle.style.background = 'linear-gradient(135deg, #4a7c59 0%, #3d6547 100%)';
+        handle.style.transform = 'scale(1)';
+        handle.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+      });
+
       controlsContainer.appendChild(handle);
     });
   }

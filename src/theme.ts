@@ -21,6 +21,12 @@ export const theme = {
     success: '#10b981',
     warning: '#f59e0b',
 
+    // Debug mode colors
+    debugFound: '#4CAF50',      // Green for found elements
+    debugNotFound: '#f44336',   // Red for missing elements
+    debugOverlay: 'rgba(76, 175, 80, 0.1)',
+    debugOverlayMissing: 'rgba(244, 67, 54, 0.1)',
+
     // Neutral colors - Better contrast
     dark: '#0f172a',         // Darker slate
     darkGray: '#1e293b',

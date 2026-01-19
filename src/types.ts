@@ -22,7 +22,8 @@ export type ExtensionMessage =
   | { type: 'enable' }
   | { type: 'disable' }
   | { type: 'refresh' }
-  | { type: 'toggleDebug' };
+  | { type: 'toggleDebug' }
+  | { type: 'getStatus' };
 
 /**
  * Response from content script about transformation status

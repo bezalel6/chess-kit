@@ -137,6 +137,11 @@ function handleMessage(message: ExtensionMessage, sendResponse: (response: any) 
       sendResponse({ success: true });
       break;
 
+    case 'getStatus':
+      const status = getTransformationStatus();
+      sendResponse(status);
+      break;
+
     default:
       sendResponse({ success: false, error: 'Unknown message type' });
   }

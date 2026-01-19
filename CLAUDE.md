@@ -4,27 +4,83 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Chess-Kit is a Chrome extension (Manifest V3) that enables chess streamers to standardize their layouts across different websites and game modes. It provides draggable and resizable selectors that can be configured to reposition and resize DOM elements on any webpage.
+Chess-Kit is a multi-browser extension (Manifest V3) that enables chess streamers to standardize their layouts across different websites and game modes. It provides draggable and resizable selectors that can be configured to reposition and resize DOM elements on any webpage. The extension supports both Chrome and Firefox with browser-specific builds.
 
 ## Development Commands
 
 ### Build & Development
 ```bash
-npm run build        # Production build (creates optimized dist/)
-npm run watch        # Development build with file watching
-npm run package      # Increments manifest version, builds, and creates dist.zip
-npm run clean        # Remove dist directory
-npm run test         # Run Jest tests
-npm run style        # Format TypeScript files with Prettier
+# Development builds with file watching
+npm run watch              # Chrome (default, backwards compatible)
+npm run watch:chrome       # Chrome with live reload
+npm run watch:firefox      # Firefox with live reload
+
+# Production builds (optimized, no source maps)
+npm run build              # Build both Chrome and Firefox
+npm run build:chrome       # Build Chrome only
+npm run build:firefox      # Build Firefox only
+
+# Package for distribution (increments version, builds, creates zips)
+npm run package            # Package both browsers
+npm run package:chrome     # Package Chrome only
+npm run package:firefox    # Package Firefox only
+
+# Clean build artifacts
+npm run clean              # Remove all dist folders and zips
+npm run clean:chrome       # Remove Chrome build only
+npm run clean:firefox      # Remove Firefox build only
+
+# Testing & formatting
+npm run test               # Run Jest tests
+npm run style              # Format TypeScript files with Prettier
 ```
 
-### Testing in Chrome
-1. Build the extension: `npm run build`
+### Testing in Browsers
+
+**Chrome**
+1. Build: `npm run build:chrome`
 2. Navigate to `chrome://extensions`
 3. Enable "Developer mode"
-4. Click "Load unpacked" and select the `dist/` directory
+4. Click "Load unpacked" and select `dist-chrome/` directory
+
+**Firefox**
+1. Build: `npm run build:firefox`
+2. Navigate to `about:debugging#/runtime/this-firefox`
+3. Click "Load Temporary Add-on"
+4. Select any file in `dist-firefox/` (e.g., `manifest.json`)
 
 ## Architecture
+
+### Multi-Browser Build System
+
+The project uses a sophisticated build system that generates separate extensions for Chrome and Firefox:
+
+**Key Files:**
+- `public/manifest-chrome.json` - Chrome Manifest V3 (version source of truth)
+- `public/manifest-firefox.json` - Firefox Manifest V3 with `browser_specific_settings`
+- `webpack/webpack.common.js` - Environment-aware webpack configuration
+- `scripts/build.js` - Multi-browser build and packaging script
+
+**Build Outputs:**
+- `dist-chrome/` and `chrome-extension.zip` - Chrome extension
+- `dist-firefox/` and `firefox-extension.zip` - Firefox extension
+
+**Version Management:**
+- `manifest-chrome.json` is the single source of truth for version numbers
+- Package scripts automatically sync version to `manifest-firefox.json`
+- Both extensions always have matching version numbers
+
+**Browser Detection:**
+```typescript
+// Runtime browser detection (injected by webpack)
+if (process.env.BROWSER === 'firefox') {
+  // Firefox-specific code
+} else {
+  // Chrome-specific code
+}
+```
+
+For comprehensive build system documentation, see `BUILD_SYSTEM.md`.
 
 ### Chrome Extension Components
 
@@ -108,14 +164,15 @@ chrome.storage.sync: {
 }
 ```
 
-### Build System
+### Build System Details
 
-- **Webpack** with separate dev/prod configurations
+- **Webpack** with environment-aware configurations (dev/prod, chrome/firefox)
 - **TypeScript** compiled via `ts-loader`
 - **React** for UI components (popup and options)
 - **Entry Points**: `background.ts`, `content_script.tsx`, `popup.tsx`, `options.tsx`
 - **Code Splitting**: Vendor chunk created for all entries except background (to keep service worker lightweight)
-- **Output**: All built files go to `dist/js/`, static files copied from `public/` to `dist/`
+- **Output**: Built files go to `dist-chrome/js/` or `dist-firefox/js/`, static files copied from `public/`
+- **Manifest Handling**: Browser-specific manifests copied and renamed to `manifest.json` during build
 
 ## Customizing the Theme
 
@@ -150,8 +207,33 @@ Content script communicates with popup/background via `chrome.runtime.onMessage`
 ### Cleanup Pattern
 `makeDraggable()` returns a `destroy()` function. Content script maintains an array of instances and calls `destroy()` on all of them before re-applying selectors (e.g., when refreshing or disabling).
 
+### Browser Compatibility
+Both Chrome and Firefox support the `chrome.*` API namespace, so most extension code works identically across browsers. Use `process.env.BROWSER` only when browser-specific behavior is required.
+
 ## Testing
 
 - Uses **Jest** with **ts-jest** for TypeScript support
 - Test files in `src/__tests__/`
 - Run tests with `npm run test` or `npx jest`
+
+## Distribution
+
+### Release Process
+
+1. **Package both browsers**: `npm run package`
+2. **Upload to stores**:
+   - Chrome Web Store: Upload `chrome-extension.zip`
+   - Firefox Add-ons: Upload `firefox-extension.zip`
+
+### Important Notes
+
+- Update Firefox extension ID in `public/manifest-firefox.json` before publishing:
+  ```json
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "your-addon-id@your-domain.com"
+    }
+  }
+  ```
+- Version numbers are automatically synced between browsers
+- Both builds are created from the same source code with browser-specific manifests

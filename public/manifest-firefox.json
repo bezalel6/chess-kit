@@ -38,5 +38,11 @@
   ],
   "host_permissions": [
     "<all_urls>"
-  ]
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "chess-kit@example.com",
+      "strict_min_version": "109.0"
+    }
+  }
 }

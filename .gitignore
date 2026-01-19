@@ -1,6 +1,11 @@
 npm-debug.log
 node_modules/
 dist/
+dist-chrome/
+dist-firefox/
 tmp/
 gamePage*
 *.log
+*.zip
+chrome-extension.zip
+firefox-extension.zip

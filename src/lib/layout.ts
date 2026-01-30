@@ -4,8 +4,8 @@
  */
 
 export interface LayoutConfig {
-  enabled: boolean;
-  extractPlayerCards: boolean;
+  compactSidebar: boolean;
+  repositionPlayerCards: boolean;
 }
 
 interface ElementRestoreData {
@@ -24,6 +24,7 @@ interface TransformationState {
     bottomPlayer: HTMLElement | null;
     topClock: HTMLElement | null;
     bottomClock: HTMLElement | null;
+    scrollableContent: HTMLElement | null;
   };
 }
 
@@ -37,6 +38,7 @@ let transformationState: TransformationState = {
     bottomPlayer: null,
     topClock: null,
     bottomClock: null,
+    scrollableContent: null,
   },
 };
 
@@ -51,13 +53,26 @@ export function injectLayoutCSS(config: LayoutConfig): void {
   const existing = document.getElementById(CHESS_KIT_STYLE_ID);
   if (existing) existing.remove();
 
-  if (!config.enabled) return;
+  if (!config.compactSidebar) return;
 
   const style = document.createElement('style');
   style.id = CHESS_KIT_STYLE_ID;
 
   style.textContent = `
     /* Chess-Kit Layout Override */
+
+    /* Make the main chess layout container flex properly */
+    #board-layout-chess {
+      display: flex !important;
+      gap: 16px !important;
+      align-items: flex-start !important;
+    }
+
+    /* Allow chessboard to flex and grow dynamically */
+    #board-layout-main {
+      flex: 1 1 auto !important;
+      min-width: 0 !important;
+    }
 
     /* Make sidebar much smaller - compact width and height */
     #board-layout-sidebar {
@@ -67,10 +82,11 @@ export function injectLayoutCSS(config: LayoutConfig): void {
       max-width: 500px !important;
       min-height: 400px !important;
       max-height: 800px !important;
-      overflow: auto !important;
+      overflow: visible !important; /* No overflow on sidebar itself */
       margin-left: auto !important;
       margin-right: auto !important;
       position: relative !important; /* For resize handle positioning */
+      flex-shrink: 0 !important; /* Prevent sidebar from shrinking */
     }
 
     /* Custom resize handle */
@@ -197,17 +213,18 @@ export function injectLayoutCSS(config: LayoutConfig): void {
       flex-direction: column !important;
     }
 
-    /* Ensure tabs stay at top and don't scroll */
-    #board-layout-sidebar .tabs-component {
-      flex-shrink: 0;
-    }
-
-    /* Main sidebar content area - scrollable */
-    #board-layout-sidebar .sidebar-content {
-      flex: 1;
-      min-height: 0;
+    /* Scrollable wrapper for sidebar content (not including player cards) */
+    .chess-kit-scrollable-content {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
       overflow-y: auto !important;
       overflow-x: hidden !important;
+      order: 0 !important; /* Between player cards */
+    }
+
+    /* Ensure tabs stay at top within scrollable area */
+    .chess-kit-scrollable-content .tabs-component {
+      flex-shrink: 0;
     }
 
     /* Compact move list spacing */
@@ -390,10 +407,21 @@ export async function transformPlayerCards(): Promise<void> {
   topWrapper.appendChild(playerTop); // appendChild MOVES element, keeping web components alive
   bottomWrapper.appendChild(playerBottom); // appendChild MOVES element
 
-  // Insert wrappers into sidebar
-  // Order: clock (top) → player card (top) → sidebar content → player card (bottom) → clock (bottom)
-  sidebar.insertBefore(topWrapper, sidebar.firstChild);
-  sidebar.insertBefore(topClockWrapper, topWrapper); // Insert clock before player card
+  // Create scrollable wrapper for existing sidebar content
+  const scrollableWrapper = document.createElement('div');
+  scrollableWrapper.className = 'chess-kit-scrollable-content';
+
+  // Move all existing sidebar children into the scrollable wrapper
+  // This keeps tabs, move lists, etc. in a scrollable container
+  while (sidebar.firstChild) {
+    scrollableWrapper.appendChild(sidebar.firstChild);
+  }
+
+  // Now construct the final structure in the sidebar
+  // Order: clock (top) → player card (top) → scrollable content → player card (bottom) → clock (bottom)
+  sidebar.appendChild(topClockWrapper);
+  sidebar.appendChild(topWrapper);
+  sidebar.appendChild(scrollableWrapper); // Scrollable content in the middle
   sidebar.appendChild(bottomWrapper);
   sidebar.appendChild(bottomClockWrapper);
 
@@ -408,6 +436,7 @@ export async function transformPlayerCards(): Promise<void> {
       bottomPlayer: bottomWrapper,
       topClock: topClockWrapper,
       bottomClock: bottomClockWrapper,
+      scrollableContent: scrollableWrapper,
     },
   };
 
@@ -510,6 +539,17 @@ export function removeLayoutTransformation(): void {
     restoreElement(transformationState.bottomPlayerCard);
   }
 
+  // Get sidebar element
+  const sidebar = document.querySelector('#board-layout-sidebar') as HTMLElement;
+
+  // Restore scrollable content back to sidebar
+  if (transformationState.wrappers.scrollableContent && sidebar) {
+    // Move all children from scrollable wrapper back to sidebar
+    while (transformationState.wrappers.scrollableContent.firstChild) {
+      sidebar.appendChild(transformationState.wrappers.scrollableContent.firstChild);
+    }
+  }
+
   // Remove wrappers (now empty after elements moved out)
   if (transformationState.wrappers.topPlayer) {
     transformationState.wrappers.topPlayer.remove();
@@ -527,6 +567,10 @@ export function removeLayoutTransformation(): void {
     transformationState.wrappers.bottomClock.remove();
   }
 
+  if (transformationState.wrappers.scrollableContent) {
+    transformationState.wrappers.scrollableContent.remove();
+  }
+
   // Reset transformation state
   transformationState = {
     topPlayerCard: null,
@@ -538,11 +582,11 @@ export function removeLayoutTransformation(): void {
       bottomPlayer: null,
       topClock: null,
       bottomClock: null,
+      scrollableContent: null,
     },
   };
 
   // Remove transformed attribute and resize handle
-  const sidebar = document.querySelector('#board-layout-sidebar') as HTMLElement;
   if (sidebar) {
     sidebar.removeAttribute(CHESS_KIT_TRANSFORMED_ATTR);
 
@@ -564,7 +608,7 @@ export function removeLayoutTransformation(): void {
  * Applies complete layout transformation
  */
 export function applyLayoutTransformation(config: LayoutConfig): void {
-  if (!config.enabled) {
+  if (!config.compactSidebar) {
     removeLayoutTransformation();
     return;
   }
@@ -579,7 +623,7 @@ export function applyLayoutTransformation(config: LayoutConfig): void {
   injectLayoutCSS(config);
 
   // Wait for DOM to settle, then move player cards
-  if (config.extractPlayerCards) {
+  if (config.repositionPlayerCards) {
     // Use setTimeout to ensure DOM is ready
     setTimeout(async () => {
       await transformPlayerCards();
@@ -606,7 +650,7 @@ export function observeLayoutChanges(config: LayoutConfig): MutationObserver {
           const boardMain = document.querySelector('#board-layout-main');
           const cardsInBoard = boardMain?.contains(playerTop || null) && boardMain?.contains(playerBottom || null);
 
-          if (config.enabled && config.extractPlayerCards && cardsInBoard) {
+          if (config.compactSidebar && config.repositionPlayerCards && cardsInBoard) {
             // Wait for DOM to settle before transforming
             setTimeout(async () => {
               await transformPlayerCards();

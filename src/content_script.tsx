@@ -9,9 +9,11 @@ import {
   observeLayoutChanges,
   removeLayoutTransformation,
 } from './lib/layout';
+import { LagTelemetry } from './lib/lag/lag-telemetry';
 
 let layoutObserver: MutationObserver | null = null;
 let currentConfig: ChessKitConfig | null = null;
+let lagTelemetry: LagTelemetry | null = null;
 
 /**
  * Initialize the extension
@@ -19,18 +21,16 @@ let currentConfig: ChessKitConfig | null = null;
 function init() {
   console.log('[Chess-Kit] Initializing content script');
 
-  // Load config and apply transformation
   loadConfigAndApply();
 
-  // Listen for messages from popup/background
   chrome.runtime.onMessage.addListener((message: ExtensionMessage, _sender, sendResponse) => {
     handleMessage(message, sendResponse);
-    return true; // Keep message channel open for async response
+    return true;
   });
 }
 
 /**
- * Load configuration from storage and apply layout transformation
+ * Load configuration from storage and apply all features
  */
 function loadConfigAndApply() {
   chrome.storage.sync.get('config', (items) => {
@@ -42,39 +42,51 @@ function loadConfigAndApply() {
     }
 
     currentConfig = config;
-
-    if (config.enabled) {
-      applyTransformation(config);
-    } else {
-      removeTransformation();
-    }
+    applyAllFeatures(config);
   });
 }
 
 /**
- * Apply layout transformation
+ * Apply all features based on current config flags
  */
-function applyTransformation(config: ChessKitConfig) {
-  console.log('[Chess-Kit] Applying layout transformation', config);
+function applyAllFeatures(config: ChessKitConfig) {
+  console.log('[Chess-Kit] Applying features', config);
 
-  // Remove previous observer if exists
+  // --- Layout ---
   if (layoutObserver) {
     layoutObserver.disconnect();
     layoutObserver = null;
   }
 
-  // Apply the transformation
-  applyLayoutTransformation({
-    enabled: config.enabled,
-    extractPlayerCards: config.extractPlayerCards,
-  });
+  if (config.compactSidebar) {
+    applyLayoutTransformation({
+      compactSidebar: config.compactSidebar,
+      repositionPlayerCards: config.repositionPlayerCards,
+    });
 
-  // Start observing for dynamic DOM changes
-  layoutObserver = observeLayoutChanges({
-    enabled: config.enabled,
-    extractPlayerCards: config.extractPlayerCards,
-  });
+    layoutObserver = observeLayoutChanges({
+      compactSidebar: config.compactSidebar,
+      repositionPlayerCards: config.repositionPlayerCards,
+    });
+  } else {
+    removeLayoutTransformation();
+  }
 
+  // --- Lag telemetry ---
+  if (config.lagOverlay) {
+    if (!lagTelemetry) {
+      lagTelemetry = new LagTelemetry();
+    }
+    if (!lagTelemetry.getIsRunning()) {
+      lagTelemetry.start();
+    }
+  } else {
+    if (lagTelemetry) {
+      lagTelemetry.stop();
+    }
+  }
+
+  // --- Debug overlay ---
   if (config.debugMode) {
     showDebugOverlay();
   } else {
@@ -83,63 +95,19 @@ function applyTransformation(config: ChessKitConfig) {
 }
 
 /**
- * Remove layout transformation
- */
-function removeTransformation() {
-  console.log('[Chess-Kit] Removing layout transformation');
-
-  if (layoutObserver) {
-    layoutObserver.disconnect();
-    layoutObserver = null;
-  }
-
-  removeLayoutTransformation();
-  hideDebugOverlay();
-}
-
-/**
- * Handle messages from popup/background
+ * Handle messages from popup/options
  */
 function handleMessage(message: ExtensionMessage, sendResponse: (response: any) => void) {
   console.log('[Chess-Kit] Received message:', message);
 
   switch (message.type) {
-    case 'enable':
-      if (currentConfig) {
-        currentConfig.enabled = true;
-        applyTransformation(currentConfig);
-      }
-      sendResponse({ success: true });
-      break;
-
-    case 'disable':
-      if (currentConfig) {
-        currentConfig.enabled = false;
-        removeTransformation();
-      }
-      sendResponse({ success: true });
-      break;
-
     case 'refresh':
       loadConfigAndApply();
       sendResponse({ success: true });
       break;
 
-    case 'toggleDebug':
-      if (currentConfig) {
-        currentConfig.debugMode = !currentConfig.debugMode;
-        if (currentConfig.debugMode) {
-          showDebugOverlay();
-        } else {
-          hideDebugOverlay();
-        }
-      }
-      sendResponse({ success: true });
-      break;
-
     case 'getStatus':
-      const status = getTransformationStatus();
-      sendResponse(status);
+      sendResponse(getTransformationStatus());
       break;
 
     default:
@@ -176,12 +144,12 @@ function showDebugOverlay() {
 
   overlay.innerHTML = `
     <div style="font-weight: bold; margin-bottom: 8px; color: #00ff00;">
-      🔧 Chess-Kit Debug Mode
+      Chess-Kit Debug
     </div>
-    <div>Enabled: ${status.enabled ? '✅' : '❌'}</div>
-    <div>Player Cards Extracted: ${status.playerCardsExtracted ? '✅' : '❌'}</div>
-    <div>CSS Injected: ${status.cssInjected ? '✅' : '❌'}</div>
-    <div>Sidebar Compacted: ${status.cssInjected ? '✅' : '❌'}</div>
+    <div>Compact Sidebar: ${status.compactSidebar ? 'YES' : 'NO'}</div>
+    <div>Player Cards Repositioned: ${status.playerCardsRepositioned ? 'YES' : 'NO'}</div>
+    <div>Lag Overlay Active: ${status.lagOverlayActive ? 'YES' : 'NO'}</div>
+    <div>Debug Overlay: ${status.debugOverlayActive ? 'YES' : 'NO'}</div>
     <div style="margin-top: 8px; font-size: 10px; color: #888;">
       Click to close
     </div>
@@ -208,12 +176,13 @@ function hideDebugOverlay() {
 function getTransformationStatus(): TransformationStatus {
   const cssInjected = !!document.getElementById('chess-kit-layout-override');
   const sidebar = document.querySelector('#board-layout-sidebar');
-  const playerCardsExtracted = sidebar?.hasAttribute('data-chess-kit-transformed') ?? false;
+  const playerCardsRepositioned = sidebar?.hasAttribute('data-chess-kit-transformed') ?? false;
 
   return {
-    enabled: currentConfig?.enabled ?? false,
-    playerCardsExtracted,
-    cssInjected,
+    compactSidebar: cssInjected,
+    playerCardsRepositioned,
+    lagOverlayActive: lagTelemetry?.getIsRunning() ?? false,
+    debugOverlayActive: currentConfig?.debugMode ?? false,
   };
 }
 

@@ -10,10 +10,10 @@ module.exports = (env = {}) => {
 
     return {
         entry: {
-            popup: path.join(srcDir, 'popup.tsx'),
-            options: path.join(srcDir, 'options.tsx'),
+            settings: path.join(srcDir, 'settings.tsx'),
             background: path.join(srcDir, 'background.ts'),
             content_script: path.join(srcDir, 'content_script.tsx'),
+            lag_page_script: path.join(srcDir, 'lag-page-script.ts'),
         },
         output: {
             path: path.join(__dirname, `../${outputDir}/js`),
@@ -23,7 +23,7 @@ module.exports = (env = {}) => {
             splitChunks: {
                 name: "vendor",
                 chunks(chunk) {
-                    return chunk.name !== 'background';
+                    return chunk.name !== 'background' && chunk.name !== 'lag_page_script';
                 }
             },
         },

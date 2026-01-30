@@ -2,13 +2,16 @@
  * Main configuration stored in chrome.storage.sync
  */
 export type ChessKitConfig = {
-  /** Whether the extension is globally enabled */
-  enabled: boolean;
+  /** Whether to inject CSS that compacts the sidebar */
+  compactSidebar: boolean;
 
-  /** Whether to extract player cards and move them above/below sidebar */
-  extractPlayerCards: boolean;
+  /** Whether to move player cards above/below the sidebar */
+  repositionPlayerCards: boolean;
 
-  /** Debug mode shows transformation status */
+  /** Whether lag telemetry overlay is shown */
+  lagOverlay: boolean;
+
+  /** Whether debug overlay is shown */
   debugMode: boolean;
 
   /** Configuration version for migrations */
@@ -16,20 +19,19 @@ export type ChessKitConfig = {
 };
 
 /**
- * Message types for communication between extension components
+ * Message types for communication between extension components.
+ * All feature toggles save config then send 'refresh'.
  */
 export type ExtensionMessage =
-  | { type: 'enable' }
-  | { type: 'disable' }
   | { type: 'refresh' }
-  | { type: 'toggleDebug' }
   | { type: 'getStatus' };
 
 /**
- * Response from content script about transformation status
+ * Response from content script about current feature status
  */
 export type TransformationStatus = {
-  enabled: boolean;
-  playerCardsExtracted: boolean;
-  cssInjected: boolean;
+  compactSidebar: boolean;
+  playerCardsRepositioned: boolean;
+  lagOverlayActive: boolean;
+  debugOverlayActive: boolean;
 };

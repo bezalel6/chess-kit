@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Chess-Kit",
   "description": "A toolkit for chess streamers to standardize their layouts across different websites and game modes.",
-  "version": "1.69.4",
+  "version": "1.69.13",
   "options_ui": {
     "page": "options.html"
   },
@@ -38,5 +38,15 @@
   ],
   "host_permissions": [
     "*://*.chess.com/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "js/lag_page_script.js"
+      ],
+      "matches": [
+        "*://*.chess.com/*"
+      ]
+    }
   ]
 }

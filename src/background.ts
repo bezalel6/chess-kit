@@ -1,11 +1,12 @@
 import { ChessKitConfig } from './types';
 
-const CURRENT_VERSION = 2;
+const CURRENT_VERSION = 4;
 
 function getDefaultConfig(): ChessKitConfig {
   return {
-    enabled: true,
-    extractPlayerCards: true,
+    compactSidebar: true,
+    repositionPlayerCards: true,
+    lagOverlay: false,
     debugMode: false,
     version: CURRENT_VERSION,
   };
@@ -13,15 +14,20 @@ function getDefaultConfig(): ChessKitConfig {
 
 function initializeConfig() {
   chrome.storage.sync.get('config', (items) => {
-    const existingConfig = items.config as ChessKitConfig | undefined;
+    // Use `any` for old config shape during migration
+    const existingConfig = items.config as any | undefined;
 
     // If no config exists, or it's from an old version, initialize/migrate
     if (!existingConfig || existingConfig.version !== CURRENT_VERSION) {
       console.log('[Chess-Kit] Initializing/migrating configuration...');
 
       const newConfig: ChessKitConfig = {
-        enabled: existingConfig?.enabled ?? true,
-        extractPlayerCards: existingConfig?.extractPlayerCards ?? true,
+        // v1-v3 had `enabled` → now `compactSidebar`
+        compactSidebar: existingConfig?.compactSidebar ?? existingConfig?.enabled ?? true,
+        // v1-v3 had `extractPlayerCards` → now `repositionPlayerCards`
+        repositionPlayerCards:
+          existingConfig?.repositionPlayerCards ?? existingConfig?.extractPlayerCards ?? true,
+        lagOverlay: existingConfig?.lagOverlay ?? false,
         debugMode: existingConfig?.debugMode ?? false,
         version: CURRENT_VERSION,
       };
